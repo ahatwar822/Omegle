@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { useEffect } from 'react';
 import { useState } from 'react';
 import { io } from "socket.io-client";
@@ -6,13 +6,25 @@ import { io } from "socket.io-client";
 const socket = io('http://localhost:3000')
 const App = () => {
 
-  const [soketid, setSoketid] = useState('')
+  const [socketId, setSocketId] = useState('')
 
   const [targetId, setTargetId] = useState("")
   const [message, setMessage] = useState("")
   const [allMessage, setAllMessage] = useState([])
+
+  const localVideo = useRef(null)
+  const localStream = useRef(null)
+
   const sendMessage = () => {
     console.log("ruk ja bhej raha hu")
+
+    if (message.trim()) {
+      setAllMessage((prev) => [...prev, {
+        targetId,
+        message,
+        isOwn: true
+      }])
+    }
 
     socket.emit("sender", {
       targetId: targetId,
@@ -22,38 +34,51 @@ const App = () => {
 
   useEffect(() => {
     socket.on('connect', () => {
-      setSoketid(socket.id)
+      setSocketId(socket.id)
     });
     socket.on("receiver", (receiverData) => {
-      setAllMessage((prev) => [...prev, receiverData])
+      setAllMessage((prev) => [...prev, {
+        receiverData,
+        isOwn: false
+      }])
     })
   }, [])
   return (
     <>
       <div className="outer">
         <div className="chatSection">
-          <div className="userHeader">{socketID}</div>
+          <div className="userHeader">{socketId}</div>
           <div className="chatArea">
             {
-              allMessage.map((msg,index)=>(<div key={index}>
-                  "message": {msg.message}
-
-              </div>))
+              allMessage.map((msg, index) => (
+                <div key={index} className={msg.isOwn ? "message own" : "message other"}>
+                  <div className="messageSender">{msg.isOwn ? "You" : msg.receiverData?.sender || "User"}</div>
+                  <div className="messageContent">{msg.message || msg.receiverData?.message}</div>
+                </div>
+              ))
             }
           </div>
+
           <div className="inputArea">
-            <input type="text" placeholder="enter the target id" value={targetId} onChange={(e)=>setTargetId(e.target.value)} />
-            <input type="text" placeholder="enter the message" value={message} onChange={(e)=>setMessage(e.target.value)} />
-            <button onClick={sendMessage}>send now</button>
+            <input type="text" placeholder="Enter target ID" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
+            <div className="messageInputContainer">
+              <input type="text" placeholder="Enter your message" value={message} onChange={(e) => setMessage(e.target.value)} />
+              <button onClick={sendMessage}>Send</button>
+            </div>
 
           </div>
 
-          {/* chat kre ge ya */}
+          {/* chat section end */}
         </div>
         <div className="peerConnection">
-          {/* vdo */}
+          <div className="videoSection">
+            <h3>Video Connection</h3>
+            <div className="videoContainer">
+              {/* Video implementation will be added here */}
+            </div>
+          </div>
         </div>
-      </div>  
+      </div>
     </>
   )
 }
