@@ -19,6 +19,17 @@ app.get('/', (req, res) => {
 
 io.on('connection', (socket) => {
     console.log('a user/client connected', socket.id)
+    socket.on('sender', (senderData) =>{
+        const {targetId, message} = senderData;
+        console.log(targetId, message)
+
+        io.to(targetId).emit('receiver', {
+            sernder: socket.id,
+            message
+        })
+
+
+    })
 })
 
 const PORT = process.env.PORT || 5000;
