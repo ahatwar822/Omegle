@@ -3,6 +3,9 @@ import { useEffect } from 'react';
 import { useState } from 'react';
 import { io } from "socket.io-client";
 
+//use app.css
+import './App.css'
+
 const socket = io('http://localhost:3000')
 const App = () => {
 
@@ -15,6 +18,22 @@ const App = () => {
   const localVideo = useRef(null)
   const localStream = useRef(null)
 
+  const pc = useRef(null)
+
+  const connectPC = () => {
+    pc.current = new RTCPeerConnection();
+  }
+
+  const sendOffer = async () => {
+    connectPC();
+    const offer = pc.current.createOffer();
+    await pc.current.setLocalDescription(offer);
+    socket.emit("sender", {
+      targetId: targetId,
+      message: offer
+    })
+  }
+
   const sendMessage = () => {
     console.log("ruk ja bhej raha hu")
 
@@ -24,12 +43,11 @@ const App = () => {
         message,
         isOwn: true
       }])
+      socket.emit("sender", {
+        targetId: targetId,
+        message: message
+      })
     }
-
-    socket.emit("sender", {
-      targetId: targetId,
-      message: message
-    })
   }
 
   useEffect(() => {
@@ -64,6 +82,7 @@ const App = () => {
             <div className="messageInputContainer">
               <input type="text" placeholder="Enter your message" value={message} onChange={(e) => setMessage(e.target.value)} />
               <button onClick={sendMessage}>Send</button>
+              <button onClick={sendOffer}>Send Offer</button>
             </div>
 
           </div>
