@@ -19,6 +19,7 @@ app.get('/', (req, res) => {
 
 io.on('connection', (socket) => {
     console.log('a user/client connected', socket.id)
+
     socket.on('sender', (senderData) =>{
         const {targetId, message} = senderData;
         console.log(targetId, message)
@@ -27,8 +28,28 @@ io.on('connection', (socket) => {
             sernder: socket.id,
             message
         })
+    })
+})
 
+socket.on('offer', (data) => {
+    io.to(data.targetId).emit('offer', {
+        offer: data.offer,
+        sender: socket.id
 
+    })
+})
+
+socket.on('answer', (data) => {
+    io.to(data.targetId).emit('answer', {
+        answer: data.answer,
+        sender: socket.id
+    })
+})
+
+socket.on('ice-candidate', (data) => {
+    io.to(data.targetId).emit('ice-candidate', {
+        candidate: data.candidate,
+        sender: socket.id
     })
 })
 

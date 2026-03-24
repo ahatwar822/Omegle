@@ -21,14 +21,22 @@ const App = () => {
   const pc = useRef(null)
 
   const connectPC = () => {
-    pc.current = new RTCPeerConnection();
+    pc.current = new RTCPeerConnection({
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302"
+        }
+      ]
+    });
+    
   }
 
   const sendOffer = async () => {
     connectPC();
     const offer = pc.current.createOffer();
     await pc.current.setLocalDescription(offer);
-    socket.emit("sender", {
+    console.log("offer created !!")
+    socket.emit("offer", {
       targetId: targetId,
       message: offer
     })
@@ -59,7 +67,44 @@ const App = () => {
         receiverData,
         isOwn: false
       }])
+    });
+   
+   socket.on('offer', async(data) => {
+    connectPC();
+    
+    await pc.current.setRemoteDescription(data.offer);
+    console.log('answer created');
+
+    const answer = await pc.current.createAnswer()
+    await pc.current.setLocalDescription(answer)
+
+    socket.emit('answer', {
+      targetId: targetId,
+      answer: answer
     })
+    
+   })
+
+   socket.on('answer', async(data) => {
+    await pc.current.setRemoteDescription(data.answer)
+   })
+
+   const getCamera = async () => {
+    // try {
+    //   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    //   localVideo.current.srcObject = stream;
+    //   localStream.current = stream;
+
+    //   stream.getTracks().forEach((track) => {
+    //     pc.current.addTrack(track, stream);
+    //   })
+    // } catch (error) {
+    //   console.error('Error accessing media devices:', error);
+    // }
+   }
+
+  //  getCamera();
+
   }, [])
   return (
     <>
