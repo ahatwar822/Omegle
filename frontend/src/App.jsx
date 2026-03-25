@@ -19,19 +19,31 @@ const App = () => {
   const localStream = useRef(null)
 
   const pc = useRef(null)
+  const remoteRef = useRef(null)
 
+  // Peer connection setup karna with ICE candidate handling
   const connectPC = () => {
     pc.current = new RTCPeerConnection({
       iceServers: [
-        {
-          urls: "stun:stun.l.google.com:19302"
-        }
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
       ]
     });
-    
-  }
+
+    pc.current.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("ice-candidate", {
+          targetId: remoteRef.current,
+          candidate: event.candidate
+        })
+      }
+    }
+  };
 
   const sendOffer = async () => {
+    console.log("send offfer called.")
+
+    remoteRef.current = targetId;
     connectPC();
     const offer = pc.current.createOffer();
     await pc.current.setLocalDescription(offer);
@@ -68,42 +80,51 @@ const App = () => {
         isOwn: false
       }])
     });
-   
-   socket.on('offer', async(data) => {
-    connectPC();
-    
-    await pc.current.setRemoteDescription(data.offer);
-    console.log('answer created');
 
-    const answer = await pc.current.createAnswer()
-    await pc.current.setLocalDescription(answer)
+    socket.on('offer', async (data) => {
+      console.log("offer in client. that forwarded", data.sender, data.offer)
+      remoteRef.current = data.sender;
+      connectPC();
 
-    socket.emit('answer', {
-      targetId: targetId,
-      answer: answer
+      await pc.current.setRemoteDescription(data.offer);
+      console.log('answer created');
+
+      const answer = await pc.current.createAnswer()
+      await pc.current.setLocalDescription(answer)
+
+      socket.emit('answer', {
+        targetId: targetId,
+        answer: answer
+      })
+
     })
-    
-   })
 
-   socket.on('answer', async(data) => {
-    await pc.current.setRemoteDescription(data.answer)
-   })
+    socket.on("ice-candidate",(data)=>{
+      if(pc.current&&data.candidate){
+        pc.current.addIceCandidate(new RTCIceCandidate(data.candidate))
+      }
+    })
 
-   const getCamera = async () => {
-    // try {
-    //   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    //   localVideo.current.srcObject = stream;
-    //   localStream.current = stream;
+    socket.on('answer', async (data) => {
+      console.log("answer form. server. in client ", data.sender, data.answer)
+      await pc.current.setRemoteDescription(data.answer)
+    })
 
-    //   stream.getTracks().forEach((track) => {
-    //     pc.current.addTrack(track, stream);
-    //   })
-    // } catch (error) {
-    //   console.error('Error accessing media devices:', error);
-    // }
-   }
+    const getCamera = async () => {
+      // try {
+      //   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      //   localVideo.current.srcObject = stream;
+      //   localStream.current = stream;
 
-  //  getCamera();
+      //   stream.getTracks().forEach((track) => {
+      //     pc.current.addTrack(track, stream);
+      //   })
+      // } catch (error) {
+      //   console.error('Error accessing media devices:', error);
+      // }
+    }
+
+    //  getCamera();
 
   }, [])
   return (
