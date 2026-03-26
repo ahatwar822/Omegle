@@ -14,44 +14,64 @@ const App = () => {
   const [targetId, setTargetId] = useState("")
   const [message, setMessage] = useState("")
   const [allMessage, setAllMessage] = useState([])
+  const [localVideoStream, setLocalVideoStream] = useState(null)
 
   const localVideo = useRef(null)
   const localStream = useRef(null)
 
   const pc = useRef(null)
   const remoteRef = useRef(null)
+  const localVideoRef = useRef(null)
 
   // Peer connection setup karna with ICE candidate handling
   const connectPC = () => {
+    console.log("Creating peer connection...");
     pc.current = new RTCPeerConnection({
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" }
       ]
     });
-
+    console.log("Peer connection created");
+    // ICE candidate generate hone par
     pc.current.onicecandidate = (event) => {
+
       if (event.candidate) {
+        console.log("New ICE candidate generated:", event.candidate.candidate);
         socket.emit("ice-candidate", {
           targetId: remoteRef.current,
           candidate: event.candidate
         })
+        console.log("ICE candidate sent to:", remoteRef.current);
+      } else {
+        console.log("All ICE candidates have been sent");
       }
     }
   };
 
   const sendOffer = async () => {
     console.log("send offfer called.")
+    console.log("Target ID:", targetId);
 
     remoteRef.current = targetId;
+    console.log("Remote ID stored:", remoteRef.current);
+    let stream = localVideoStream
+    if (!localVideoStream) {
+      stream = await getCamera()
+    }
     connectPC();
+    stream.getTracks().forEach(track => pc.current.addTrack(track, stream));
+    console.log("Creating offer...");
     const offer = pc.current.createOffer();
+    console.log("Offer created:", offer.type);
+
     await pc.current.setLocalDescription(offer);
-    console.log("offer created !!")
+    console.log("Local description set");
     socket.emit("offer", {
       targetId: targetId,
       message: offer
     })
+    console.log("Offer sent to server for:", targetId);
   }
 
   const sendMessage = () => {
@@ -70,8 +90,24 @@ const App = () => {
     }
   }
 
+  const getCamera = async () => {
+    try {
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      setLocalVideoStream(stream)
+      localVideoRef.current.srcObject = stream
+
+      return stream
+    } catch (error) {
+      console.log("camera and. video access denied ", error)
+      alert("video and  auido required")
+    }
+  }
+
   useEffect(() => {
     socket.on('connect', () => {
+      console.log("Connected to server");
+      console.log("My socket ID:", socket.id);
       setSocketId(socket.id)
     });
     socket.on("receiver", (receiverData) => {
@@ -81,52 +117,70 @@ const App = () => {
       }])
     });
 
-    socket.on('offer', async (data) => {
-      console.log("offer in client. that forwarded", data.sender, data.offer)
+    socket.on("offer", async (data) => {
+      console.log("Offer received from:", data.sender);
+      console.log("Offer type:", data.offer.type);
+
+
       remoteRef.current = data.sender;
-      connectPC();
+      console.log("Remote ID stored:", remoteRef.current);
+      let stream = localVideoStream
 
-      await pc.current.setRemoteDescription(data.offer);
-      console.log('answer created');
-
-      const answer = await pc.current.createAnswer()
-      await pc.current.setLocalDescription(answer)
-
-      socket.emit('answer', {
-        targetId: targetId,
-        answer: answer
-      })
-
-    })
-
-    socket.on("ice-candidate",(data)=>{
-      if(pc.current&&data.candidate){
-        pc.current.addIceCandidate(new RTCIceCandidate(data.candidate))
+      if (!localVideoStream) {
+        stream = await getCamera()
       }
-    })
 
-    socket.on('answer', async (data) => {
-      console.log("answer form. server. in client ", data.sender, data.answer)
-      await pc.current.setRemoteDescription(data.answer)
-    })
+      connectPC()
+      stream.getTracks().forEach(track => pc.current.addTrack(track, stream));
 
-    const getCamera = async () => {
-      // try {
-      //   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      //   localVideo.current.srcObject = stream;
-      //   localStream.current = stream;
 
-      //   stream.getTracks().forEach((track) => {
-      //     pc.current.addTrack(track, stream);
-      //   })
-      // } catch (error) {
-      //   console.error('Error accessing media devices:', error);
-      // }
-    }
 
-    //  getCamera();
+
+      console.log("Setting remote description...");
+      await pc.current.setRemoteDescription(data.offer);
+      console.log("Remote description set");
+
+      console.log("Creating answer...");
+      const answer = await pc.current.createAnswer();
+      console.log("Answer created:", answer.type);
+
+      await pc.current.setLocalDescription(answer);
+      console.log("Local description set");
+
+      socket.emit("answer", {
+        answer: answer,
+        targetId: data.sender,
+      });
+      console.log("Answer sent to:", data.sender);
+    });
+
+    socket.on("ice-candidate", async (data) => {
+      console.log("ICE candidate received from:", data.sender);
+
+      if (pc.current && data.candidate) {
+        try {
+          await pc.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          console.log("ICE candidate added successfully");
+        } catch (error) {
+          console.error("Error adding ICE candidate:", error);
+        }
+      } else {
+        console.log("Peer connection not ready or candidate is null");
+      }
+    });
+
+    socket.on("answer", async (data) => {
+      console.log("Answer received from:", data.sender);
+      console.log("Answer type:", data.answer.type);
+
+      console.log("Setting remote description...");
+      await pc.current.setRemoteDescription(data.answer);
+      console.log("Remote description set - Connection negotiation complete!");
+    });
+
 
   }, [])
+
   return (
     <>
       <div className="outer">
@@ -160,6 +214,9 @@ const App = () => {
             <h3>Video Connection</h3>
             <div className="videoContainer">
               {/* Video implementation will be added here */}
+               <div className="localVideoContainer">
+                <video ref={localVideoRef} autoPlay playsInline muted/>
+              </div>
             </div>
           </div>
         </div>
