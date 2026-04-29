@@ -1,4 +1,4 @@
-const chatEventHandler = (scoket, io) => {
+const chatEventHandler = (socket, io) => {
     socket.on("sender", (senderData) => {
         const { targetId, message } = senderData
         console.log(targetId, message)
