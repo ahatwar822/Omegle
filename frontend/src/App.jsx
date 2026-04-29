@@ -1,5 +1,4 @@
-import React, { useRef } from 'react'
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { io } from "socket.io-client";
 
@@ -10,11 +9,11 @@ const socket = io('http://localhost:3000')
 const App = () => {
 
   const [socketId, setSocketId] = useState('')
-
   const [targetId, setTargetId] = useState("")
   const [message, setMessage] = useState("")
   const [allMessage, setAllMessage] = useState([])
   const [localVideoStream, setLocalVideoStream] = useState(null)
+  const [remoteVideoStream, setRemoteVideoStream] = useState(null)
 
   const localVideo = useRef(null)
   const localStream = useRef(null)
@@ -22,6 +21,7 @@ const App = () => {
   const pc = useRef(null)
   const remoteRef = useRef(null)
   const localVideoRef = useRef(null)
+  const remoteVideoRef = useRef(null)
 
   // Peer connection setup karna with ICE candidate handling
   const connectPC = () => {
@@ -35,7 +35,6 @@ const App = () => {
     console.log("Peer connection created");
     // ICE candidate generate hone par
     pc.current.onicecandidate = (event) => {
-
       if (event.candidate) {
         console.log("New ICE candidate generated:", event.candidate.candidate);
         socket.emit("ice-candidate", {
@@ -46,6 +45,13 @@ const App = () => {
       } else {
         console.log("All ICE candidates have been sent");
       }
+    }
+
+    pc.current.ontrack = (event) => {
+      console.log(event.streams[0])
+      setRemoteVideoStream(event.streams[0])
+
+      remoteVideoRef.current.srcObject = event.streams[0]
     }
   };
 
@@ -94,7 +100,7 @@ const App = () => {
     try {
 
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      setLocalVideoStream(stream)
+
       localVideoRef.current.srcObject = stream
 
       return stream
@@ -214,8 +220,11 @@ const App = () => {
             <h3>Video Connection</h3>
             <div className="videoContainer">
               {/* Video implementation will be added here */}
-               <div className="localVideoContainer">
-                <video ref={localVideoRef} autoPlay playsInline muted/>
+              <div className="localVideoContainer">
+                <video ref={localVideoRef} autoPlay playsInline muted />
+              </div>
+              <div className="remoteVideoContainer">
+                <video ref={remoteVideoRef} autoPlay playsInline />
               </div>
             </div>
           </div>
