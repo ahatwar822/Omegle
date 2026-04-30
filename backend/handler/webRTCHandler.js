@@ -1,45 +1,33 @@
-const webRTCHandler = (socket, io) => {
+const webRTCHandler = (socket, io, getPartner) => {
 
     socket.on("offer", (data) => {
-        try {
-            const { targetId, offer } = data;
-            if (!targetId || !offer) return;
+        const partnerId = getPartner(socket.id);
+        if (!partnerId) return;
 
-            io.to(targetId).emit("offer", {
-                offer,
-                sender: socket.id
-            });
-        } catch (err) {
-            console.error("Offer error:", err.message);
-        }
+        io.to(partnerId).emit("offer", {
+            offer: data.offer,
+            sender: socket.id
+        });
     });
 
     socket.on("answer", (data) => {
-        try {
-            const { targetId, answer } = data;
-            if (!targetId || !answer) return;
+        const partnerId = getPartner(socket.id);
+        if (!partnerId) return;
 
-            io.to(targetId).emit("answer", {
-                answer,
-                sender: socket.id
-            });
-        } catch (err) {
-            console.error("Answer error:", err.message);
-        }
+        io.to(partnerId).emit("answer", {
+            answer: data.answer,
+            sender: socket.id
+        });
     });
 
     socket.on("ice-candidate", (data) => {
-        try {
-            const { targetId, candidate } = data;
-            if (!targetId || !candidate) return;
+        const partnerId = getPartner(socket.id);
+        if (!partnerId) return;
 
-            io.to(targetId).emit("ice-candidate", {
-                candidate,
-                sender: socket.id
-            });
-        } catch (err) {
-            console.error("ICE error:", err.message);
-        }
+        io.to(partnerId).emit("ice-candidate", {
+            candidate: data.candidate,
+            sender: socket.id
+        });
     });
 };
 

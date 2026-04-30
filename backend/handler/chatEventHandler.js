@@ -1,12 +1,13 @@
-const chatEventHandler = (socket, io) => {
-    socket.on("sender", (senderData) => {
-        const { targetId, message } = senderData
-        console.log(targetId, message)
-        io.to(targetId).emit("receiver", {
-            sender: socket.id,
-            message: message
-        })
-    })
-    }
+const chatEventHandler = (socket, io, getPartner) => {
+    socket.on("sender", (data) => {
+        const partnerId = getPartner(socket.id);
+        if (!partnerId) return;
+
+        io.to(partnerId).emit("receiver", {
+            message: data.message,
+            sender: socket.id
+        });
+    });
+};
 
 module.exports = chatEventHandler;
