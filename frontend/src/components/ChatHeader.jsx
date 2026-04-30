@@ -1,6 +1,6 @@
 import React from 'react'
 
-const ChatHeader = () => {
+const ChatHeader = ({socketID}) => {
   return (
     <div className="userHeader">{socketID}</div>
   )

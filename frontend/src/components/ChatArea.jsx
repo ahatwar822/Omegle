@@ -9,10 +9,11 @@ const ChatArea = ({ allMessage }) => {
                     className={msg.isOwn ? "message own" : "message other"}
                 >
                     <div className="messageSender">
-                        {msg.isOwn ? "You" : msg.receiverData?.sender || "User"}
+                        {msg.isOwn ? "You" : msg.sender || "User"}
                     </div>
+
                     <div className="messageContent">
-                        {msg.message || msg.receiverData?.message}
+                        {msg.message}
                     </div>
                 </div>
             ))}

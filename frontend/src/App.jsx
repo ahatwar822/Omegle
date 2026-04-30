@@ -1,198 +1,33 @@
-import { useEffect, useRef } from 'react';
-import { useState } from 'react';
-import { io } from "socket.io-client";
 
-//use app.css
 import './App.css'
 import ChatSection from './components/ChatSection';
 import VideoSection from './components/VideoSection';
+import useCamera from './hooks/useCamera';
+import useChat from './hooks/useChat';
+import useSocket from './hooks/useSocket';
+import useWebRTC from './hooks/useWebRTC';
 
-const socket = io('http://localhost:3000')
+
 const App = () => {
 
-  const [socketId, setSocketId] = useState('')
-  const [targetId, setTargetId] = useState("")
-  const [message, setMessage] = useState("")
-  const [allMessage, setAllMessage] = useState([])
-  const [localVideoStream, setLocalVideoStream] = useState(null)
-  const [remoteVideoStream, setRemoteVideoStream] = useState(null)
+  const { socketID, socket } = useSocket();
+  const { allMessage, targetId, setTargetId, message, setMessage, sendMessage } = useChat(socket);
+  const { localVideoRef, localVideoStream, getCamera } = useCamera();
+  const { remoteVideoRef, sendOffer, isConnected } = useWebRTC(socket, localVideoStream, getCamera);
 
-  const localVideo = useRef(null)
-  const localStream = useRef(null)
-
-  const pc = useRef(null)
-  const remoteRef = useRef(null)
-  const localVideoRef = useRef(null)
-  const remoteVideoRef = useRef(null)
-
-  // Peer connection setup karna with ICE candidate handling
-  const connectPC = () => {
-    console.log("Creating peer connection...");
-    pc.current = new RTCPeerConnection({
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" }
-      ]
-    });
-    console.log("Peer connection created");
-    // ICE candidate generate hone par
-    pc.current.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("New ICE candidate generated:", event.candidate.candidate);
-        socket.emit("ice-candidate", {
-          targetId: remoteRef.current,
-          candidate: event.candidate
-        })
-        console.log("ICE candidate sent to:", remoteRef.current);
-      } else {
-        console.log("All ICE candidates have been sent");
-      }
-    }
-
-    pc.current.ontrack = (event) => {
-      console.log(event.streams[0])
-      setRemoteVideoStream(event.streams[0])
-
-      remoteVideoRef.current.srcObject = event.streams[0]
-    }
-  };
-
-  const sendOffer = async () => {
-    console.log("send offfer called.")
-    console.log("Target ID:", targetId);
-
-    remoteRef.current = targetId;
-    console.log("Remote ID stored:", remoteRef.current);
-    let stream = localVideoStream
-    if (!localVideoStream) {
-      stream = await getCamera()
-    }
-    connectPC();
-    stream.getTracks().forEach(track => pc.current.addTrack(track, stream));
-    console.log("Creating offer...");
-    const offer = pc.current.createOffer();
-    console.log("Offer created:", offer.type);
-
-    await pc.current.setLocalDescription(offer);
-    console.log("Local description set");
-    socket.emit("offer", {
-      targetId: targetId,
-      message: offer
-    })
-    console.log("Offer sent to server for:", targetId);
-  }
-
-  const sendMessage = () => {
-    console.log("ruk ja bhej raha hu")
-
-    if (message.trim()) {
-      setAllMessage((prev) => [...prev, {
-        targetId,
-        message,
-        isOwn: true
-      }])
-      socket.emit("sender", {
-        targetId: targetId,
-        message: message
-      })
+  // Offer send karne ka wrapper function
+  const handleSendOffer = () => {
+    if (targetId) {
+      sendOffer(targetId)
+    } else {
+      alert("Please enter target ID first")
     }
   }
-
-  const getCamera = async () => {
-    try {
-
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-
-      localVideoRef.current.srcObject = stream
-
-      return stream
-    } catch (error) {
-      console.log("camera and. video access denied ", error)
-      alert("video and  auido required")
-    }
-  }
-
-  useEffect(() => {
-    socket.on('connect', () => {
-      console.log("Connected to server");
-      console.log("My socket ID:", socket.id);
-      setSocketId(socket.id)
-    });
-    socket.on("receiver", (receiverData) => {
-      setAllMessage((prev) => [...prev, {
-        receiverData,
-        isOwn: false
-      }])
-    });
-
-    socket.on("offer", async (data) => {
-      console.log("Offer received from:", data.sender);
-      console.log("Offer type:", data.offer.type);
-
-
-      remoteRef.current = data.sender;
-      console.log("Remote ID stored:", remoteRef.current);
-      let stream = localVideoStream
-
-      if (!localVideoStream) {
-        stream = await getCamera()
-      }
-
-      connectPC()
-      stream.getTracks().forEach(track => pc.current.addTrack(track, stream));
-
-
-
-
-      console.log("Setting remote description...");
-      await pc.current.setRemoteDescription(data.offer);
-      console.log("Remote description set");
-
-      console.log("Creating answer...");
-      const answer = await pc.current.createAnswer();
-      console.log("Answer created:", answer.type);
-
-      await pc.current.setLocalDescription(answer);
-      console.log("Local description set");
-
-      socket.emit("answer", {
-        answer: answer,
-        targetId: data.sender,
-      });
-      console.log("Answer sent to:", data.sender);
-    });
-
-    socket.on("ice-candidate", async (data) => {
-      console.log("ICE candidate received from:", data.sender);
-
-      if (pc.current && data.candidate) {
-        try {
-          await pc.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-          console.log("ICE candidate added successfully");
-        } catch (error) {
-          console.error("Error adding ICE candidate:", error);
-        }
-      } else {
-        console.log("Peer connection not ready or candidate is null");
-      }
-    });
-
-    socket.on("answer", async (data) => {
-      console.log("Answer received from:", data.sender);
-      console.log("Answer type:", data.answer.type);
-
-      console.log("Setting remote description...");
-      await pc.current.setRemoteDescription(data.answer);
-      console.log("Remote description set - Connection negotiation complete!");
-    });
-
-
-  }, [])
 
   return (
     <>
       <div className="outer">
-        <ChatSection 
+        <ChatSection
           socketID={socketID}
           allMessage={allMessage}
           targetId={targetId}
@@ -200,11 +35,12 @@ const App = () => {
           message={message}
           setMessage={setMessage}
           sendMessage={sendMessage}
-          sendOffer={sendOffer}
+          sendOffer={handleSendOffer}
         />
-        <VideoSection 
+        <VideoSection
           localVideoRef={localVideoRef}
           remoteVideoRef={remoteVideoRef}
+          isConnected={isConnected}
         />
       </div>
     </>

@@ -1,10 +1,14 @@
 import React from 'react'
+import LocalVideo from './LocalVideo'
+import RemoteVideo from './RemoteVideo'
 
-const VideoSection = ({localVideoRef, remoteVideoRef}) => {
+const VideoSection = ({ localVideoRef, remoteVideoRef, isConnected }) => {
     return (
         <div className="peerConnection">
             <div className="videoSection">
-                <h3>Video Connection</h3>
+                {!isConnected && (
+                    <div className="waitingText">Waiting for peer...</div>
+                )}
                 <div className="videoContainer">
                     {/* Video implementation will be added here */}
                     <LocalVideo localVideoRef={localVideoRef} />
