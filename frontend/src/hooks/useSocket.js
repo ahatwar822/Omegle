@@ -26,6 +26,8 @@ const useSocket = () => {
             console.log("Connected to server")
             console.log("My socket ID:", socket.id)
             setSocketID(socket.id)
+
+            socket.emit("join");
         }
 
         socket.on("connect", handleConnect)

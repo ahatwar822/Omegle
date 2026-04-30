@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 
 const useChat = (socket) => {
-    const [targetId, setTargetId] = useState("")
     const [message, setMessage] = useState("")
     const [allMessage, setAllMessage] = useState([])
 
@@ -48,7 +47,6 @@ const useChat = (socket) => {
 
             // Server ko send karo
             socket.emit("sender", {
-                targetId: targetId,
                 message: message,
             })
 
@@ -58,8 +56,6 @@ const useChat = (socket) => {
     }
     return (
         {
-            targetId,
-            setTargetId,
             message,
             setMessage,
             sendMessage,
