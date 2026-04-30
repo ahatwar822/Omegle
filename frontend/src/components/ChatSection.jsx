@@ -3,7 +3,7 @@ import ChatHeader from './ChatHeader'
 import ChatArea from './ChatArea'
 import ChatInput from './ChatInput'
 
-const ChatSection = ({ socketID, allMessage, targetId, setTargetId, message, setMessage, sendMessage, sendOffer }) => {
+const ChatSection = ({ socketID, allMessage, message, setMessage, sendMessage, sendOffer, socket }) => {
     return (
         <div className="chatSection">
 
@@ -12,12 +12,11 @@ const ChatSection = ({ socketID, allMessage, targetId, setTargetId, message, set
             <ChatArea allMessage={allMessage} />
 
             <ChatInput
-                targetId={targetId}
-                setTargetId={setTargetId}
                 message={message}
                 setMessage={setMessage}
                 sendMessage={sendMessage}
                 sendOffer={sendOffer}
+                socket={socket}
             />
 
 

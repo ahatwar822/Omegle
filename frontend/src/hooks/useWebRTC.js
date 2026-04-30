@@ -1,18 +1,22 @@
-import { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react";
 
 const useWebRTC = (socket, localVideoStream, getCamera) => {
-    const pc = useRef(null)
-    const remoteRef = useRef(null)
-    const remoteVideoRef = useRef(null)
-    const iceQueue = useRef([])
+    const pc = useRef(null);
+    const remoteRef = useRef(null);
+    const remoteVideoRef = useRef(null);
+    const iceQueue = useRef([]);
 
     const [isConnected, setIsConnected] = useState(false);
+    const [partnerId, setPartnerId] = useState(null);
 
-    // ✅ Create Peer Connection (only once)
-    const connectPC = () => {
-        if (pc.current) return
+    //  ALWAYS create fresh PeerConnection
+    const createPeerConnection = () => {
+        if (pc.current) {
+            pc.current.close();
+            pc.current = null;
+        }
 
-        console.log("Creating peer connection...")
+        console.log("Creating NEW peer connection...");
 
         pc.current = new RTCPeerConnection({
             iceServers: [
@@ -23,164 +27,193 @@ const useWebRTC = (socket, localVideoStream, getCamera) => {
                     credential: "openai"
                 }
             ]
-        })
+        });
 
-        // ✅ Send ICE candidates
+        // ICE
         pc.current.onicecandidate = (event) => {
             if (event.candidate) {
                 socket.emit("ice-candidate", {
                     targetId: remoteRef.current,
                     candidate: event.candidate
-                })
+                });
             }
-        }
+        };
 
-        // ✅ Receive remote stream
+        // Remote stream
         pc.current.ontrack = (event) => {
             console.log("Remote stream received");
 
             if (remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = event.streams[0];
-                setIsConnected(true); // ✅ IMPORTANT
+                setIsConnected(true);
             }
         };
 
-        // Debug (optional)
         pc.current.onconnectionstatechange = () => {
-            console.log("Connection state:", pc.current.connectionState)
-        }
-    }
+            console.log("Connection state:", pc.current.connectionState);
+        };
+    };
 
-    // ✅ SEND OFFER
+    //  SAFE TRACK ADDING
+    const addTracks = (stream) => {
+        const senders = pc.current.getSenders();
+
+        if (senders.length === 0) {
+            stream.getTracks().forEach(track => {
+                pc.current.addTrack(track, stream);
+            });
+        }
+    };
+
+    //  SEND OFFER
     const sendOffer = async (targetId) => {
         try {
-            console.log("Sending offer to:", targetId)
-            remoteRef.current = targetId
+            console.log("Sending offer to:", targetId);
+            remoteRef.current = targetId;
 
-            let stream = localVideoStream
+            let stream = localVideoStream;
             if (!stream) {
-                stream = await getCamera()
+                stream = await getCamera();
             }
 
-            connectPC()
+            createPeerConnection();
+            addTracks(stream);
 
-            // Add tracks
-            stream.getTracks().forEach(track => {
-                pc.current.addTrack(track, stream)
-            })
-
-            const offer = await pc.current.createOffer()
-            await pc.current.setLocalDescription(offer)
+            const offer = await pc.current.createOffer();
+            await pc.current.setLocalDescription(offer);
 
             socket.emit("offer", {
                 targetId,
                 offer
-            })
+            });
 
         } catch (err) {
-            console.error("Offer error:", err)
+            console.error("Offer error:", err);
         }
-    }
+    };
 
     useEffect(() => {
-        if (!socket) return
+        if (!socket) return;
 
-        // ✅ HANDLE OFFER (receiver side)
+        //  OFFER HANDLER
         const handleOffer = async (data) => {
             try {
-                console.log("Offer received from:", data.sender)
+                console.log("Offer received from:", data.sender);
 
-                remoteRef.current = data.sender
+                remoteRef.current = data.sender;
 
-                let stream = localVideoStream
+                let stream = localVideoStream;
                 if (!stream) {
-                    stream = await getCamera()
+                    stream = await getCamera();
                 }
 
-                connectPC()
+                createPeerConnection();
+                addTracks(stream);
 
-                // Add tracks
-                stream.getTracks().forEach(track => {
-                    pc.current.addTrack(track, stream)
-                })
+                await pc.current.setRemoteDescription(data.offer);
 
-                // IMPORTANT: set remote description first
-                await pc.current.setRemoteDescription(data.offer)
-
-                // Flush queued ICE candidates
+                // flush ICE
                 for (let candidate of iceQueue.current) {
-                    await pc.current.addIceCandidate(new RTCIceCandidate(candidate))
+                    await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
                 }
-                iceQueue.current = []
+                iceQueue.current = [];
 
-                const answer = await pc.current.createAnswer()
-                await pc.current.setLocalDescription(answer)
+                const answer = await pc.current.createAnswer();
+                await pc.current.setLocalDescription(answer);
 
                 socket.emit("answer", {
                     targetId: data.sender,
                     answer
-                })
+                });
 
             } catch (err) {
-                console.error("Offer handling error:", err)
+                console.error("Offer handling error:", err);
             }
-        }
+        };
 
-        // ✅ HANDLE ANSWER (caller side)
+        //  ANSWER HANDLER
         const handleAnswer = async (data) => {
             try {
-                console.log("Answer received from:", data.sender)
+                console.log("Answer received from:", data.sender);
 
-                await pc.current.setRemoteDescription(data.answer)
+                await pc.current.setRemoteDescription(data.answer);
 
-                // Flush ICE queue
                 for (let candidate of iceQueue.current) {
-                    await pc.current.addIceCandidate(new RTCIceCandidate(candidate))
+                    await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
                 }
-                iceQueue.current = []
+                iceQueue.current = [];
 
             } catch (err) {
-                console.error("Answer error:", err)
+                console.error("Answer error:", err);
             }
-        }
+        };
 
-        // ✅ HANDLE ICE
+        //  ICE HANDLER
         const handleIceCandidate = async (data) => {
             try {
-                if (!pc.current) return
+                if (!pc.current) return;
 
                 if (pc.current.remoteDescription) {
                     await pc.current.addIceCandidate(
                         new RTCIceCandidate(data.candidate)
-                    )
+                    );
                 } else {
-                    // Store until remoteDescription is set
-                    iceQueue.current.push(data.candidate)
+                    iceQueue.current.push(data.candidate);
                 }
 
             } catch (err) {
-                console.error("ICE error:", err)
+                console.error("ICE error:", err);
             }
-        }
+        };
 
-        // Register listeners
-        socket.on("offer", handleOffer)
-        socket.on("answer", handleAnswer)
-        socket.on("ice-candidate", handleIceCandidate)
+        //  MATCHED
+        const handleMatched = (data) => {
+            console.log("Matched with:", data.partnerId);
 
+            setPartnerId(data.partnerId);
+            setIsConnected(false);
+            iceQueue.current = [];
+
+            sendOffer(data.partnerId);
+        };
+
+        // DISCONNECT
+        const handleDisconnect = () => {
+            console.log("Partner disconnected");
+
+            setPartnerId(null);
+            setIsConnected(false);
+            iceQueue.current = [];
+
+            if (pc.current) {
+                pc.current.close();
+                pc.current = null;
+            }
+        };
+
+        // Register
+        socket.on("offer", handleOffer);
+        socket.on("answer", handleAnswer);
+        socket.on("ice-candidate", handleIceCandidate);
+        socket.on("matched", handleMatched);
+        socket.on("partner-disconnected", handleDisconnect);
+
+        // Cleanup
         return () => {
-            socket.off("offer", handleOffer)
-            socket.off("answer", handleAnswer)
-            socket.off("ice-candidate", handleIceCandidate)
-        }
+            socket.off("offer", handleOffer);
+            socket.off("answer", handleAnswer);
+            socket.off("ice-candidate", handleIceCandidate);
+            socket.off("matched", handleMatched);
+            socket.off("partner-disconnected", handleDisconnect);
+        };
 
-    }, [socket, localVideoStream, getCamera])
+    }, [socket, localVideoStream, getCamera]);
 
     return {
         remoteVideoRef,
         sendOffer,
         isConnected
-    }
-}
+    };
+};
 
-export default useWebRTC
+export default useWebRTC;

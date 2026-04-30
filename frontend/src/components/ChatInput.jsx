@@ -1,14 +1,9 @@
 import React from 'react'
 
-const ChatInput = ({ targetId, setTargetId, message, setMessage, sendMessage, sendOffer }) => {
+const ChatInput = ({  message, setMessage, sendMessage, sendOffer, socket }) => {
     return (
         <div className="inputArea">
-            <input
-                type="text"
-                placeholder="Enter target ID"
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-            />
+
             <div className="messageInputContainer">
                 <input
                     type="text"
@@ -17,7 +12,9 @@ const ChatInput = ({ targetId, setTargetId, message, setMessage, sendMessage, se
                     onChange={(e) => setMessage(e.target.value)}
                 />
                 <button onClick={sendMessage}>Send</button>
-                <button onClick={sendOffer}>Send Offer</button>
+                <button onClick={() => socket.emit("next")}>
+                    Next Stranger
+                </button>
             </div>
         </div>
     )

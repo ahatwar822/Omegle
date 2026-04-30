@@ -15,14 +15,6 @@ const App = () => {
   const { localVideoRef, localVideoStream, getCamera } = useCamera();
   const { remoteVideoRef, sendOffer, isConnected } = useWebRTC(socket, localVideoStream, getCamera);
 
-  // Offer send karne ka wrapper function
-  const handleSendOffer = () => {
-    if (targetId) {
-      sendOffer(targetId)
-    } else {
-      alert("Please enter target ID first")
-    }
-  }
 
   return (
     <>
@@ -30,12 +22,11 @@ const App = () => {
         <ChatSection
           socketID={socketID}
           allMessage={allMessage}
-          targetId={targetId}
-          setTargetId={setTargetId}
           message={message}
           setMessage={setMessage}
           sendMessage={sendMessage}
-          sendOffer={handleSendOffer}
+          sendOffer={sendOffer}
+          socket={socket}
         />
         <VideoSection
           localVideoRef={localVideoRef}
