@@ -4,6 +4,8 @@ import { io } from "socket.io-client";
 
 //use app.css
 import './App.css'
+import ChatSection from './components/ChatSection';
+import VideoSection from './components/VideoSection';
 
 const socket = io('http://localhost:3000')
 const App = () => {
@@ -190,45 +192,20 @@ const App = () => {
   return (
     <>
       <div className="outer">
-        <div className="chatSection">
-          <div className="userHeader">{socketId}</div>
-          <div className="chatArea">
-            {
-              allMessage.map((msg, index) => (
-                <div key={index} className={msg.isOwn ? "message own" : "message other"}>
-                  <div className="messageSender">{msg.isOwn ? "You" : msg.receiverData?.sender || "User"}</div>
-                  <div className="messageContent">{msg.message || msg.receiverData?.message}</div>
-                </div>
-              ))
-            }
-          </div>
-
-          <div className="inputArea">
-            <input type="text" placeholder="Enter target ID" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
-            <div className="messageInputContainer">
-              <input type="text" placeholder="Enter your message" value={message} onChange={(e) => setMessage(e.target.value)} />
-              <button onClick={sendMessage}>Send</button>
-              <button onClick={sendOffer}>Send Offer</button>
-            </div>
-
-          </div>
-
-          {/* chat section end */}
-        </div>
-        <div className="peerConnection">
-          <div className="videoSection">
-            <h3>Video Connection</h3>
-            <div className="videoContainer">
-              {/* Video implementation will be added here */}
-              <div className="localVideoContainer">
-                <video ref={localVideoRef} autoPlay playsInline muted />
-              </div>
-              <div className="remoteVideoContainer">
-                <video ref={remoteVideoRef} autoPlay playsInline />
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChatSection 
+          socketID={socketID}
+          allMessage={allMessage}
+          targetId={targetId}
+          setTargetId={setTargetId}
+          message={message}
+          setMessage={setMessage}
+          sendMessage={sendMessage}
+          sendOffer={sendOffer}
+        />
+        <VideoSection 
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+        />
       </div>
     </>
   )
