@@ -16,7 +16,7 @@ const io = new Server(httpServer, {
 })
 
 app.get('/', (req, res) => {
-    res.send('hello world')
+    res.send('server is running...');
 })
 
 connectionhandler(io);

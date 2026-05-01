@@ -14,8 +14,7 @@ const VideoSection = ({ localVideoRef, remoteVideoRef, isConnected }) => {
                     <LocalVideo localVideoRef={localVideoRef} />
 
                     <RemoteVideo remoteVideoRef={remoteVideoRef} />
-
-
+                    
                 </div>
             </div>
         </div>
